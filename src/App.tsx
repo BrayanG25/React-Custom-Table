@@ -1,20 +1,22 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 
-import { User } from './DataTypes'
 import Table from './components/table/Table'
+import { User } from './DataTypes'
 
 import './App.css'
+
+const API_URL = 'https://randomuser.me/api?results=5';
 
 function App() {
   const [data, setData] = useState<User[]>([])
   const [color, setColor] = useState(false)
   const [orderByCountry, setOrderByCountry] = useState(false)
-  const originalData = useRef<User[]>([]);
   const [filteredCountry, setFilteredCountry] = useState<string | null>(null)
+  const originalData = useRef<User[]>([]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const response = await fetch(`https://randomuser.me/api?results=5`)
+      const response = await fetch(API_URL)
 
       if (!response.ok) {
         throw new Error('Error in fetching data...')
@@ -25,69 +27,70 @@ function App() {
       originalData.current = result.results
       
     } catch (error) {
-      throw new Error(`Error: ${error}`)
+      console.error(`Fetch error: ${error}`);
     }
-  }
+  }, [])
 
-  useEffect(() => { fetchData() },[])
+  useEffect(() => { fetchData() }, [fetchData])
 
   const toggleColor = () => { 
-    setColor(color => !color) 
+    setColor(prevColor => !prevColor) 
   }
 
   const toggleOrderUsers = () => { 
-    setOrderByCountry(orderByCountry => ! orderByCountry) 
+    setOrderByCountry(prevOrder  => !prevOrder) 
   }
 
   const handleDeleteUser = (email: string) => { 
-    const dataFiltered = data.filter((user) => user.email !== email) 
-    setData(dataFiltered)
+    setData(prevData => prevData.filter((user) => user.email !== email))
   }
-
-  const filteredUser = useMemo(() => {
-    console.log('filtrando');
-    
-    return filteredCountry !== null && filteredCountry.trim().length > 0 ? 
-      data.filter((user) => { return user.location.country.toLowerCase().includes(filteredCountry.toLowerCase()) }) : 
-      data
-  }, [filteredCountry, data])
-
-  const sortedUsers = useMemo(() => {
-    console.log('ordenando...');
-    
-    return orderByCountry ? 
-      [...filteredUser].sort((a,b) => { return a.location.country.localeCompare(b.location.country) }) : 
-      filteredUser
-  }, [filteredUser, orderByCountry])
-
-  // const filteredUser = (() => {
-  //   console.log('filtrando');
-    
-  //   return filteredCountry !== null && filteredCountry.trim().length > 0 ? 
-  //     data.filter((user) => { return user.location.country.toLowerCase().includes(filteredCountry.toLowerCase()) }) : 
-  //     data
-  // })()
-
-  // const sortedUsers = (() => {
-  //   console.log('ordenando...');
-    
-  //   return orderByCountry ? 
-  //     [...filteredUser].sort((a,b) => { return a.location.country.localeCompare(b.location.country) }) : 
-  //     filteredUser
-  // })()
 
   const resetData = () => { 
     setData(originalData.current) 
   }
 
+  // Forma Optima
+  const filteredUser = useMemo(() => {    
+    return filteredCountry?.trim() 
+      ? data.filter( user =>
+        user.location.country.toLowerCase().includes(filteredCountry.toLowerCase())
+      ) 
+      : data
+  }, [filteredCountry, data])
+
+  const sortedUsers = useMemo(() => {
+    return orderByCountry 
+      ? [...filteredUser].sort((a,b) => a.location.country.localeCompare(b.location.country)) 
+      : filteredUser
+  }, [filteredUser, orderByCountry])
+
+  // Forma no optima
+  // const filteredUser = (() => {    
+  //   return filteredCountry !== null && filteredCountry.trim().length > 0 ? 
+  //     data.filter((user) => { return user.location.country.toLowerCase().includes(filteredCountry.toLowerCase()) }) : 
+  //     data
+  // })()
+
+  // const sortedUsers = (() => {    
+  //   return orderByCountry ? 
+  //     [...filteredUser].sort((a,b) => { return a.location.country.localeCompare(b.location.country) }) : 
+  //     filteredUser
+  // })()
+
   return (
     <>
       <header>
         <h1>Table React</h1>
-        <button type='button' onClick={toggleColor}>{color ? 'No colorear' : 'Colorear Tabla'}</button>
-        <button type='button' onClick={toggleOrderUsers}>{orderByCountry ? 'No ordenar' : 'Ordenar por pais'}</button>
-        <button type='button' onClick={resetData}>Restaurar Datos</button>
-        <input type="text" placeholder='Filtra por pais' onChange={(e) => {setFilteredCountry(e.target.value)}}></input>
+        <button type='button' onClick={toggleColor} aria-label="Toggle table color">
+          {color ? 'No colorear' : 'Colorear Tabla'}
+        </button>
+        <button type='button' onClick={toggleOrderUsers} aria-label="Toggle sorting by country">
+          {orderByCountry ? 'No ordenar' : 'Ordenar por pais'}
+        </button>
+        <button type='button' onClick={resetData} aria-label="Reset data">
+          Restaurar Datos
+        </button>
+        <input type="text" placeholder='Filtra por pais' onChange={e => setFilteredCountry(e.target.value)} aria-label="Filter by country"></input>
       </header>
       <main>
         <Table users={sortedUsers} background={color} deleteUser={handleDeleteUser}/>
